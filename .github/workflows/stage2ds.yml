@@ -1,0 +1,166 @@
+name: Stage2DS Processor
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: "Resume Drive downloads and start, continue processing, or run final retry"
+        required: true
+        type: choice
+        default: start
+        options:
+          - start
+          - continue
+          - retry
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: stage2ds-pipeline
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: ${{ inputs.phase == 'start' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-stage2ds.txt
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements-stage2ds.txt
+
+      - name: Restore persistent Drive download cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p stage2dstempstorage
+          if gh release view stage2ds-latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            if gh release download stage2ds-latest --pattern stage2dstempstorage.zip --dir . --repo "$GITHUB_REPOSITORY"; then
+              unzip -oq stage2dstempstorage.zip
+              echo "Restored persistent Drive download cache."
+            else
+              echo "No previous download-cache asset; starting with an empty cache."
+            fi
+          else
+            echo "No previous Stage2DS release; starting with an empty cache."
+          fi
+
+      - name: Download only missing Drive files (stop after 3 consecutive errors)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DRIVE_FOLDER_URL: https://drive.google.com/drive/folders/1FEext-LcjonVRFSHeav0Kxb2xOhS70n9
+        run: python scripts/stage2ds.py download
+
+      - name: Package persistent Drive download cache
+        if: always()
+        run: |
+          if [ -d stage2dstempstorage ]; then
+            python scripts/stage2ds.py temp-zip
+          else
+            echo "No download cache directory exists."
+          fi
+
+      - name: Save persistent Drive download cache to GitHub Release
+        if: always() && hashFiles('stage2dstempstorage.zip') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view stage2ds-latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||             gh release create stage2ds-latest --repo "$GITHUB_REPOSITORY"               --title "Stage2DS latest complete folder"               --notes "Persistent Drive download cache and rolling processing snapshot."
+          gh release upload stage2ds-latest stage2dstempstorage.zip --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Run full preflight checks using cached downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DRIVE_FOLDER_URL: https://drive.google.com/drive/folders/1FEext-LcjonVRFSHeav0Kxb2xOhS70n9
+        run: python scripts/stage2ds.py preflight
+
+      - name: Create initial complete ZIP
+        run: python scripts/stage2ds.py zip
+
+      - name: Save initial processing snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload stage2ds-latest stage2ds.zip --clobber --repo "$GITHUB_REPOSITORY"
+
+  process:
+    needs: preflight
+    if: ${{ always() && (needs.preflight.result == 'success' || needs.preflight.result == 'skipped') && (inputs.phase == 'start' || inputs.phase == 'continue') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-stage2ds.txt
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements-stage2ds.txt
+
+      - name: Restore latest complete folder snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download stage2ds-latest --pattern stage2ds.zip --dir . --repo "$GITHUB_REPOSITORY"
+          unzip -q stage2ds.zip
+
+      - name: Process until the safe job time limit
+        env:
+          GH_TOKEN: ${{ secrets.STAGE2DS_GH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DRIVE_FOLDER_URL: https://drive.google.com/drive/folders/1FEext-LcjonVRFSHeav0Kxb2xOhS70n9
+        run: python scripts/stage2ds.py process --max-minutes 350 --files-per-job 10
+
+  final_retry:
+    needs: preflight
+    if: ${{ always() && (needs.preflight.result == 'success' || needs.preflight.result == 'skipped') && inputs.phase == 'retry' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-stage2ds.txt
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements-stage2ds.txt
+
+      - name: Restore latest complete folder snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download stage2ds-latest --pattern stage2ds.zip --dir . --repo "$GITHUB_REPOSITORY"
+          unzip -q stage2ds.zip
+
+      - name: Retry failed positions once
+        env:
+          GH_TOKEN: ${{ secrets.STAGE2DS_GH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DRIVE_FOLDER_URL: https://drive.google.com/drive/folders/1FEext-LcjonVRFSHeav0Kxb2xOhS70n9
+        run: python scripts/stage2ds.py retry --max-minutes 350
