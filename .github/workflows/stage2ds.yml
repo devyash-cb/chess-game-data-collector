@@ -163,4 +163,4 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           DRIVE_FOLDER_URL: https://drive.google.com/drive/folders/1FEext-LcjonVRFSHeav0Kxb2xOhS70n9
-        run: python scripts/stage2ds.py retry --max-minutes 350
+        run: python scripts/stage2ds.py retry --max-minutes 320
