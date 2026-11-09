@@ -189,7 +189,7 @@ def send_error_log(con, all_logs=False):
     if all_logs:
         if not logs:
             empty = ERROR_DIR / "no-errors.txt"
-            empty.write_text("No error logs have been created yet.\\n", encoding="utf-8")
+            empty.write_text("No error logs have been created yet.\n", encoding="utf-8")
             logs = [empty]
         archive = Path("/tmp/stage2ds-errorlogs.zip")
         archive.unlink(missing_ok=True)
@@ -203,7 +203,7 @@ def send_error_log(con, all_logs=False):
     target = preferred if preferred and preferred.exists() else (logs[0] if logs else None)
     if target is None:
         target = ERROR_DIR / "no-errors.txt"
-        target.write_text("No error log exists yet.\\n", encoding="utf-8")
+        target.write_text("No error log exists yet.\n", encoding="utf-8")
     tg_document(target, f"Error log: {target.name} (may be incomplete/current)")
 
 
@@ -213,8 +213,8 @@ def progress_text(con):
     total_positions = con.execute("SELECT COALESCE(SUM(total),0) n FROM files").fetchone()["n"]
     checkpointed = con.execute("SELECT COALESCE(SUM(last_index),0) n FROM files").fetchone()["n"]
     failed = con.execute("SELECT COUNT(*) n FROM errors WHERE status IN ('failed','final_failed','retry_reserved')").fetchone()["n"]
-    return (f"STAGE2DS PROGRESS\\nFiles: {completed_files}/{total_files} completed\\n"
-            f"Positions checkpointed/attempted: {checkpointed:,}/{total_positions:,}\\n"
+    return (f"STAGE2DS PROGRESS\nFiles: {completed_files}/{total_files} completed\n"
+            f"Positions checkpointed/attempted: {checkpointed:,}/{total_positions:,}\n"
             f"Outstanding errors: {failed:,}")
 
 
@@ -233,9 +233,9 @@ def job_text(con):
     record = con.execute("SELECT status,runs FROM jobs WHERE job_number=?", (number,)).fetchone()
     state = record["status"] if record else "pending"
     runs = record["runs"] if record else 0
-    return (f"CURRENT LOGICAL JOB: {number}/{total_jobs}\\n"
-            f"Files: {group[0].name} — {group[-1].name} ({len(group)} files)\\n"
-            f"State: {state}\\nWorkflow runs used: {runs}\\n"
+    return (f"CURRENT LOGICAL JOB: {number}/{total_jobs}\n"
+            f"Files: {group[0].name} — {group[-1].name} ({len(group)} files)\n"
+            f"State: {state}\nWorkflow runs used: {runs}\n"
             "The next run resumes this same job until all its files are fully traversed.")
 
 
@@ -274,11 +274,11 @@ def poll_bot(con, force=False):
                 send_error_log(con, all_logs=True)
             elif command in ("/help", "/start"):
                 tg_message(
-                    "STAGE2DS COMMANDS\\n"
-                    "/status or /ping — current processor status\\n"
-                    "/progress — completed files and checkpointed positions\\n"
-                    "/job — current logical job and its fixed file range\\n"
-                    "/error — send current/latest TXT error log, including an incomplete one\\n"
+                    "STAGE2DS COMMANDS\n"
+                    "/status or /ping — current processor status\n"
+                    "/progress — completed files and checkpointed positions\n"
+                    "/job — current logical job and its fixed file range\n"
+                    "/error — send current/latest TXT error log, including an incomplete one\n"
                     "/errors — send a ZIP containing all TXT error logs"
                 )
         except Exception as exc:
@@ -908,8 +908,8 @@ def process_job(max_minutes=SAFE_JOB_MINUTES, files_per_job=MAX_FILES_PER_JOB):
     )
     con.commit()
     tg_message(
-        f"LOGICAL JOB {job_number}/{(len(paths)+files_per_job-1)//files_per_job} STARTED.\\n"
-        f"Fixed file range: {first_name} — {last_name} ({len(job_paths)} files).\\n"
+        f"LOGICAL JOB {job_number}/{(len(paths)+files_per_job-1)//files_per_job} STARTED.\n"
+        f"Fixed file range: {first_name} — {last_name} ({len(job_paths)} files).\n"
         f"Run limit: {max_minutes} minutes. This run resumes only this job."
     )
     runtime_set(con, status="processing", current_job=job_number, job_started=now())
@@ -1013,13 +1013,13 @@ def process_job(max_minutes=SAFE_JOB_MINUTES, files_per_job=MAX_FILES_PER_JOB):
             con.commit()
             log = error_path(path.name)
             if not log.exists():
-                log.write_text("No errors recorded.\\n", encoding="utf-8")
+                log.write_text("No errors recorded.\n", encoding="utf-8")
             failed = con.execute(
                 "SELECT COUNT(*) n FROM errors WHERE dataset_id=? AND status IN ('failed','final_failed','retry_reserved')",
                 (dsid,),
             ).fetchone()["n"]
             tg_message(
-                f"FILE COMPLETED: {path.name}\\nPositions: {total}\\n"
+                f"FILE COMPLETED: {path.name}\nPositions: {total}\n"
                 f"Normal-pass errors awaiting final retry: {failed}"
             )
             tg_document(log, f"Error log for {path.name}")
