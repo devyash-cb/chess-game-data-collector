@@ -1,0 +1,237 @@
+name: Stage3DS Fog Collector
+
+on:
+  schedule:
+    # 03:00, 09:00, 15:00 and 21:00 India Standard Time (UTC+5:30)
+    - cron: '30 21,3,9,15 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stage3dsfog-collector
+  cancel-in-progress: false
+
+jobs:
+  collect-and-send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download latest Stage2DS snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/stage2ds-release"
+          downloaded=0
+          for attempt in 1 2 3 4 5 6; do
+            rm -f "$RUNNER_TEMP/stage2ds-release/stage2ds.zip"
+            if gh release download stage2ds-latest \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern "stage2ds.zip" \
+              --dir "$RUNNER_TEMP/stage2ds-release"; then
+              downloaded=1
+              break
+            fi
+            echo "Snapshot not available yet (attempt $attempt/6); waiting 20 seconds."
+            sleep 20
+          done
+          if [ "$downloaded" -ne 1 ]; then
+            echo "::error::Could not download stage2ds.zip from release stage2ds-latest."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/stage2ds-snapshot"
+          unzip -q "$RUNNER_TEMP/stage2ds-release/stage2ds.zip" -d "$RUNNER_TEMP/stage2ds-snapshot"
+          test -f "$RUNNER_TEMP/stage2ds-snapshot/stage2ds/progress.sqlite"
+
+      - name: Copy newly completed JSON datasets
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import shutil
+          import sqlite3
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          snapshot = Path("${{ runner.temp }}/stage2ds-snapshot/stage2ds")
+          db_path = snapshot / "progress.sqlite"
+          source_dir = snapshot
+          target_dir = Path("stage3dsfog")
+          target_dir.mkdir(parents=True, exist_ok=True)
+          manifest_path = target_dir / ".collector_manifest.json"
+
+          if manifest_path.exists():
+              manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          else:
+              manifest = {"version": 1, "files": {}}
+
+          # Read the released snapshot only. Never write to or delete anything in it.
+          con = sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True)
+          try:
+              rows = con.execute(
+                  "SELECT file_name FROM files WHERE status = 'completed' ORDER BY file_name"
+              ).fetchall()
+          finally:
+              con.close()
+
+          added = []
+          for (file_name,) in rows:
+              # Stage2DS stores the dataset JSON files directly under stage2ds/.
+              safe_name = Path(file_name).name
+              if safe_name != file_name or not safe_name.lower().endswith(".json"):
+                  print(f"Skipping unexpected database filename: {file_name!r}")
+                  continue
+              source = source_dir / safe_name
+              destination = target_dir / safe_name
+              if not source.is_file():
+                  print(f"Completed database entry has no JSON yet: {safe_name}")
+                  continue
+              if safe_name in manifest["files"]:
+                  continue
+
+              shutil.copy2(source, destination)
+              manifest["files"][safe_name] = {
+                  "collected_at": datetime.now(timezone.utc).isoformat(),
+                  "telegram_sent": False
+              }
+              added.append(safe_name)
+
+          manifest_path.write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8"
+          )
+          print(f"New JSON datasets copied: {len(added)}")
+          for name in added:
+              print(f"  + {name}")
+          PY
+
+      - name: Commit collected files before Telegram delivery
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stage3dsfog/
+          if ! git diff --cached --quiet; then
+            git commit -m "Collect newly completed Stage2DS JSON datasets"
+            git push
+          else
+            echo "No new collection files to commit."
+          fi
+
+      - name: Send each pending JSON file to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+          from pathlib import Path
+
+          folder = Path("stage3dsfog")
+          manifest_path = folder / ".collector_manifest.json"
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+          chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+
+          if not token or not chat_id:
+              print("Telegram secrets are not configured; files remain queued for a later run.")
+              raise SystemExit(0)
+
+          boundary = "----Stage3DSFogTelegramBoundary"
+          pending = [
+              name for name, info in manifest["files"].items()
+              if not info.get("telegram_sent", False)
+          ]
+          print(f"Pending Telegram deliveries: {len(pending)}")
+
+          def send_document(path):
+              caption = f"New Stage2DS dataset: {path.name}"
+              body = bytearray()
+              def field(name, value):
+                  body.extend(f"--{boundary}\r\n".encode())
+                  body.extend(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode())
+                  body.extend(value.encode())
+                  body.extend(b"\r\n")
+              field("chat_id", chat_id)
+              field("caption", caption)
+              body.extend(f"--{boundary}\r\n".encode())
+              body.extend(
+                  f'Content-Disposition: form-data; name="document"; filename="{path.name}"\r\n'.encode()
+              )
+              body.extend(b"Content-Type: application/json\r\n\r\n")
+              with path.open("rb") as f:
+                  body.extend(f.read())
+              body.extend(f"\r\n--{boundary}--\r\n".encode())
+
+              request = urllib.request.Request(
+                  f"https://api.telegram.org/bot{token}/sendDocument",
+                  data=bytes(body),
+                  headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+                  method="POST"
+              )
+              with urllib.request.urlopen(request, timeout=180) as response:
+                  result = json.loads(response.read().decode("utf-8"))
+              if not result.get("ok"):
+                  raise RuntimeError(result.get("description", "Telegram API returned ok=false"))
+
+          failed = []
+          for name in pending:
+              path = folder / name
+              if not path.is_file():
+                  print(f"Queued file is missing from the collection folder: {name}")
+                  failed.append(name)
+                  continue
+              delivered = False
+              for attempt in range(1, 4):
+                  try:
+                      send_document(path)
+                      manifest["files"][name]["telegram_sent"] = True
+                      manifest["files"][name]["telegram_sent_at"] = time.strftime(
+                          "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+                      )
+                      manifest_path.write_text(
+                          json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+                          encoding="utf-8"
+                      )
+                      print(f"Telegram sent: {name}")
+                      delivered = True
+                      break
+                  except Exception as exc:
+                      print(f"Telegram attempt {attempt}/3 failed for {name}: {exc}")
+                      if attempt < 3:
+                          time.sleep(15 * attempt)
+              if not delivered:
+                  failed.append(name)
+
+          print(f"Telegram delivery complete. Failed/pending: {len(failed)}")
+          if failed:
+              print("These files remain queued and will be retried on a future scheduled run:")
+              for name in failed:
+                  print(f"  - {name}")
+          PY
+
+      - name: Save Telegram delivery status
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stage3dsfog/.collector_manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update Stage3DS Fog Telegram delivery status"
+            git push
+          else
+            echo "No delivery-status changes to commit."
+          fi
