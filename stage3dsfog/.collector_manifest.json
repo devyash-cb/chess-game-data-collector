@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "files": {
+    "1000to1010.json": {
+      "collected_at": "2026-11-11T15:38:32.425499+00:00",
+      "telegram_sent": false
+    },
+    "1010to1020.json": {
+      "collected_at": "2026-11-11T15:38:32.426410+00:00",
+      "telegram_sent": false
+    },
+    "1020to1030.json": {
+      "collected_at": "2026-11-11T15:38:32.427284+00:00",
+      "telegram_sent": false
+    },
+    "1030to1040.json": {
+      "collected_at": "2026-11-11T15:38:32.428155+00:00",
+      "telegram_sent": false
+    },
+    "1040to1050.json": {
+      "collected_at": "2026-11-11T15:38:32.429023+00:00",
+      "telegram_sent": false
+    },
+    "1050to1060.json": {
+      "collected_at": "2026-11-11T15:38:32.429862+00:00",
+      "telegram_sent": false
+    },
+    "1060to1070.json": {
+      "collected_at": "2026-11-11T15:38:32.430738+00:00",
+      "telegram_sent": false
+    },
+    "1070to1080.json": {
+      "collected_at": "2026-11-11T15:38:32.431614+00:00",
+      "telegram_sent": false
+    },
+    "1080to1090.json": {
+      "collected_at": "2026-11-11T15:38:32.432471+00:00",
+      "telegram_sent": false
+    }
+  }
+}
