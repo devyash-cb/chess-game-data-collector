@@ -63,7 +63,8 @@
     },
     "1120to1130.json": {
       "collected_at": "2026-11-12T10:29:51.403802+00:00",
-      "telegram_sent": false
+      "telegram_sent": true,
+      "telegram_sent_at": "2026-11-12T10:29:55Z"
     }
   }
 }
