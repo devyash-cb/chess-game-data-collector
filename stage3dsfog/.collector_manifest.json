@@ -73,11 +73,13 @@
     },
     "1140to1150.json": {
       "collected_at": "2026-11-13T02:03:59.922812+00:00",
-      "telegram_sent": false
+      "telegram_sent": true,
+      "telegram_sent_at": "2026-11-13T02:04:04Z"
     },
     "1150to1160.json": {
       "collected_at": "2026-11-13T02:03:59.923548+00:00",
-      "telegram_sent": false
+      "telegram_sent": true,
+      "telegram_sent_at": "2026-11-13T02:04:06Z"
     }
   }
 }
