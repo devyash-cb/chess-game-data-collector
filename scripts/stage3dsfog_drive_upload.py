@@ -59,11 +59,11 @@ def drive_request(url, token, data=None, headers=None, method=None):
     return request_json(url, data, h, method)
 
 
-def find_previously_created(name, token):
+def find_previously_created(name, token, folder_id):
     # This is an idempotency lookup only. No file content is downloaded,
     # compared, patched, or replaced.
     escaped = name.replace("\\", "\\\\").replace("'", "\\'")
-    query = "appProperties has { key='stage3dsfog_name' and value='" + escaped + "' } and trashed=false"
+    query = "'" + folder_id + "' in parents and appProperties has { key='stage3dsfog_name' and value='" + escaped + "' } and trashed=false"
     params = urllib.parse.urlencode({
         "q": query,
         "pageSize": "10",
@@ -149,7 +149,7 @@ def main():
             continue
 
         try:
-            existing = find_previously_created(name, token)
+            existing = find_previously_created(name, token, folder_id)
             if existing:
                 result = existing
                 print(f"Drive already has this collector file; recording it without re-upload: {name}")
