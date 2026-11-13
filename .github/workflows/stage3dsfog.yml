@@ -125,15 +125,6 @@ jobs:
             echo "No new collection files to commit."
           fi
 
-      - name: Upload collected JSON files to Google Drive (create once; never update)
-        env:
-          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
-          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
-          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
-          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
-        shell: bash
-        run: python scripts/stage3dsfog_drive_upload.py
-
       - name: Send each pending JSON file to Telegram
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
