@@ -124,6 +124,14 @@
     "1240to1250.json": {
       "collected_at": "2026-11-14T20:02:27.488931+00:00",
       "telegram_sent": false
+    },
+    "1250to1260.json": {
+      "collected_at": "2026-11-15T01:14:12.048369+00:00",
+      "telegram_sent": false
+    },
+    "1260to1270.json": {
+      "collected_at": "2026-11-15T01:14:12.049008+00:00",
+      "telegram_sent": false
     }
   }
 }
