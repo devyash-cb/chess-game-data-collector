@@ -173,15 +173,18 @@
     },
     "1340to1350.json": {
       "collected_at": "2026-11-16T23:48:53.041623+00:00",
-      "telegram_sent": false
+      "telegram_sent": true,
+      "telegram_sent_at": "2026-11-16T23:48:58Z"
     },
     "1350to1360.json": {
       "collected_at": "2026-11-16T23:48:53.042469+00:00",
-      "telegram_sent": false
+      "telegram_sent": true,
+      "telegram_sent_at": "2026-11-16T23:48:59Z"
     },
     "1360to1370.json": {
       "collected_at": "2026-11-16T23:48:53.043286+00:00",
-      "telegram_sent": false
+      "telegram_sent": true,
+      "telegram_sent_at": "2026-11-16T23:49:01Z"
     }
   }
 }
