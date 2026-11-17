@@ -185,6 +185,14 @@
       "collected_at": "2026-11-16T23:48:53.043286+00:00",
       "telegram_sent": true,
       "telegram_sent_at": "2026-11-16T23:49:01Z"
+    },
+    "1370to1380.json": {
+      "collected_at": "2026-11-17T12:21:33.018881+00:00",
+      "telegram_sent": false
+    },
+    "1380to1390.json": {
+      "collected_at": "2026-11-17T12:21:33.019695+00:00",
+      "telegram_sent": false
     }
   }
 }
