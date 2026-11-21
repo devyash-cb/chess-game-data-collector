@@ -295,6 +295,18 @@
       "collected_at": "2026-11-21T11:38:26.966133+00:00",
       "telegram_sent": true,
       "telegram_sent_at": "2026-11-21T11:38:32Z"
+    },
+    "1590to1600.json": {
+      "collected_at": "2026-11-21T21:01:35.061817+00:00",
+      "telegram_sent": false
+    },
+    "1600to1610.json": {
+      "collected_at": "2026-11-21T21:01:35.062746+00:00",
+      "telegram_sent": false
+    },
+    "1610to1620.json": {
+      "collected_at": "2026-11-21T21:01:35.063653+00:00",
+      "telegram_sent": false
     }
   }
 }
