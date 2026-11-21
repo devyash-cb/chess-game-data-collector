@@ -288,11 +288,13 @@
     },
     "1570to1580.json": {
       "collected_at": "2026-11-21T11:38:26.965223+00:00",
-      "telegram_sent": false
+      "telegram_sent": true,
+      "telegram_sent_at": "2026-11-21T11:38:31Z"
     },
     "1580to1590.json": {
       "collected_at": "2026-11-21T11:38:26.966133+00:00",
-      "telegram_sent": false
+      "telegram_sent": true,
+      "telegram_sent_at": "2026-11-21T11:38:32Z"
     }
   }
 }
