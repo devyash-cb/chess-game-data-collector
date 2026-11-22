@@ -310,6 +310,10 @@
       "collected_at": "2026-11-21T21:01:35.063653+00:00",
       "telegram_sent": true,
       "telegram_sent_at": "2026-11-21T21:01:44Z"
+    },
+    "1620to1630.json": {
+      "collected_at": "2026-11-22T01:30:16.747800+00:00",
+      "telegram_sent": false
     }
   }
 }
