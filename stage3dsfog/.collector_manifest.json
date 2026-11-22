@@ -318,11 +318,13 @@
     },
     "1630to1640.json": {
       "collected_at": "2026-11-22T11:52:44.150339+00:00",
-      "telegram_sent": false
+      "telegram_sent": true,
+      "telegram_sent_at": "2026-11-22T11:52:48Z"
     },
     "1640to1650.json": {
       "collected_at": "2026-11-22T11:52:44.151231+00:00",
-      "telegram_sent": false
+      "telegram_sent": true,
+      "telegram_sent_at": "2026-11-22T11:52:51Z"
     }
   }
 }
